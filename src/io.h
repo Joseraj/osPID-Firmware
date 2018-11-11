@@ -16,8 +16,11 @@
 * 3. PROTOTYPE_INPUT:
 *    Generic prototype card with input specified by user. Please add necessary
 *    input processing in the section below.
+* 4. TEMP_INPUT_V130:
+*    Temperature Basic V1.30 with  1 PT100 RTD (MAX31865) or 1 type-K thermocouple 
+*    (MAX6675) interface.
 *
-* Output Cards
+* Output Cards //default to PI
 * ============
 * 1. DIGITAL_OUTPUT_V120: 
 *    Output card with 1 SSR & 2 relay output.
@@ -35,7 +38,8 @@
 
 // ***** INPUT CARD *****
 //#define TEMP_INPUT_V110
-#define TEMP_INPUT_V120
+//#define TEMP_INPUT_V120
+#define TEMP_INPUT_V130
 //#define PROTOTYPE_INPUT
 
 // ***** OUTPUT CARD *****
@@ -52,10 +56,10 @@ byte b1,b2;
 
 #ifdef TEMP_INPUT_V110
 #include "max6675_local.h"
-const byte thermistorPin = A6;
-const byte thermocoupleCS = 10;
-const byte thermocoupleSO = 12;
-const byte thermocoupleCLK = 13;
+const byte thermistorPin = A3;
+const byte thermocoupleCS = 3;
+const byte thermocoupleSO = 2;
+const byte thermocoupleCLK = 11;
 byte inputType = 0;
 double THERMISTORNOMINAL = 10;
 double BCOEFFICIENT = 1;
@@ -85,6 +89,8 @@ void EEPROMRestoreInputParams(int offset)
 
 void InitializeInputCard()
 {
+  pinMode(12, OUTPUT); digitalWrite(12, HIGH);
+  pinMode(13, OUTPUT); digitalWrite(13, LOW);
 }
 
 void InputSerialReceiveStart()
@@ -159,10 +165,10 @@ double ReadInputFromCard()
 
 #ifdef TEMP_INPUT_V120
 #include "MAX31855_local.h"
-const byte thermistorPin = A6;
-const byte thermocoupleCS = 10;
-const byte thermocoupleSO = 12;
-const byte thermocoupleCLK = 13;
+const byte thermistorPin = A3;
+const byte thermocoupleCS = 3;
+const byte thermocoupleSO = 2;
+const byte thermocoupleCLK = 11;
 byte inputType = 0;
 double THERMISTORNOMINAL = 10;
 double BCOEFFICIENT = 1;
@@ -270,6 +276,97 @@ double ReadInputFromCard()
 }
 #endif /*TEMP_INPUT_V120*/
 
+
+#ifdef TEMP_INPUT_V130
+#include "max6675_local.h"
+const byte thermocoupleCS = 5;
+const byte thermocoupleSO = 6;
+const byte thermocoupleCLK = 4;
+byte inputType = 0;
+int vccPin = A5;
+int gndPin = A4;
+MAX6675 thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO);
+
+#include <Adafruit_MAX31865.h>
+// Use software SPI: CS, DI, DO, CLK
+//Adafruit_MAX31865 max = Adafruit_MAX31865(10, 11, 12, 13);
+// use hardware SPI, just pass in the CS pin
+Adafruit_MAX31865 max = Adafruit_MAX31865(3);
+// The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
+#define RREF      430.0
+// The 'nominal' 0-degrees-C resistance of the sensor
+// 100.0 for PT100, 1000.0 for PT1000
+#define RNOMINAL  100.0
+#define PT100TYPE  MAX31865_4WIRE
+// set to 2WIRE or 3WIRE or 4WIRE as necessary
+
+// EEPROM backup
+
+// EEPROM backup
+void EEPROMBackupInputParams(int offset)
+{
+  EEPROM.write(offset, inputType);
+}
+
+// EEPROM restore
+void EEPROMRestoreInputParams(int offset)
+{
+  inputType = EEPROM.read(offset);
+}
+
+void InitializeInputCard()
+{
+  pinMode(vccPin, OUTPUT); digitalWrite(vccPin, HIGH);
+  pinMode(gndPin, OUTPUT); digitalWrite(gndPin, LOW);
+  max.begin(PT100TYPE);
+  delay(200);   // wait for MAX chip to stabilize
+}
+
+void InputSerialReceiveStart()
+{
+}
+
+void InputSerialReceiveDuring(byte val, byte index)
+{
+  if(index==1) b1 = val;
+  else if(index<18) serialXfer.asBytes[index-2] = val; 
+}
+
+void InputSerialReceiveAfter(int eepromOffset)
+{
+  inputType = b1;
+  EEPROMBackupInputParams(eepromOffset);
+}
+
+void InputSerialSend()
+{
+  Serial.print((int)inputType); 
+  Serial.print(" "); 
+}
+
+void InputSerialID()
+{
+  Serial.print(" IID3"); 
+}
+
+double ReadInputFromCard()
+{
+//  if(inputType == 0) return thermocouple.readCelsius();
+//  else if(inputType == 1)
+  {
+    float PT100_temp = max.temperature(RNOMINAL, RREF);
+    uint8_t fault = max.readFault();
+    if (fault) {
+       return NAN;
+    }
+    else
+    {
+      return PT100_temp;
+    }
+   } 
+}
+#endif /*TEMP_INPUT_V130*/
+
 #ifdef PROTOTYPE_INPUT
  /*Include any libraries and/or global variables here*/
 
@@ -360,8 +457,8 @@ double ReadInputFromCard()
 
 #if defined(DIGITAL_OUTPUT_V120) || defined(DIGITAL_OUTPUT_V150)
 byte outputType = 1;
-const byte RelayPin = 5;
-const byte SSRPin = 6;
+const byte RelayPin = A2;
+const byte SSRPin = A1;
 //unsigned long windowStartTime;
 double outWindowSec = 5.0;
 unsigned long WindowSize = 5000;

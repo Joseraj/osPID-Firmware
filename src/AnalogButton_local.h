@@ -1,6 +1,6 @@
 #ifndef AnalogButton_h
 #define AnalogButton_h
- 
+
 #include <inttypes.h>
 
 enum button_t
@@ -9,7 +9,8 @@ enum button_t
 	BUTTON_RETURN,	
 	BUTTON_UP,
 	BUTTON_DOWN,
-	BUTTON_OK
+	BUTTON_OK,
+    BUTTON_SELECT
 };
 
 enum buttonState_t
@@ -28,7 +29,7 @@ class AnalogButton
 	public:
 		AnalogButton(uint8_t analogPin, int buttonValueReturn, 
 					 int buttonValueUp, int buttonValueDown, 
-					 int buttonValueOk);
+					 int buttonValueOk, int buttonSelect);
 		
 		button_t	get(void);
 		
@@ -42,6 +43,7 @@ class AnalogButton
 		int buttonValueThresholdUp;
 		int buttonValueThresholdDown;
 		int buttonValueThresholdOk;
+        int buttonValueThresholdSelect;
 };
 
 #endif

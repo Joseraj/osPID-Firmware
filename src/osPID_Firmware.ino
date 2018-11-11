@@ -8,10 +8,36 @@
 #include "PID_AutoTune_v0_local.h"
 #include "io.h"
 
+// ***** DECLARE FUNCTIONS *****
+void back();
+void updown(bool up);
+void ok();
+void changeAutoTune();
+void AutoTuneHelper(boolean start);
+void StartProfile();
+void StopProfile();
+void ProfileRunTime();
+void calcNextProf();
+void initializeEEPROM();
+void EEPROMreset();
+void EEPROMBackupTunings();
+void EEPROMRestoreTunings();
+void EEPROMBackupDash();
+void EEPROMRestoreDash();
+void EEPROMBackupATune();
+void EEPROMRestoreATune();
+void EEPROMBackupProfile();
+void EEPROMRestoreProfile();
+void drawLCD();
+void drawItem(byte row, boolean highlight, byte index);
+void SerialReceive();
+void SerialSend();
+byte getMenuType(byte index);
+
 // ***** PIN ASSIGNMENTS *****
 
-const byte buzzerPin = 3;
-const byte systemLEDPin = A2;
+const byte buzzerPin = A5;
+const byte systemLEDPin = A4;
 
 const byte EEPROM_ID = 2; //used to automatically trigger and eeprom reset after firmware update (if necessary)
 
@@ -29,17 +55,19 @@ byte *mMenu[] = {
   mMain, mDash, mConfig};
 
 byte curMenu=0, mIndex=0, mDrawIndex=0;
-LiquidCrystal lcd(A1, A0, 4, 7, 8, 9);
-AnalogButton button(A3, 0, 253, 454, 657);
+byte lcd_rows = 16;
+//LiquidCrystal lcd(7, 8, 9, 7, 8, 9);
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7); //for keypadlcd
+AnalogButton button(A0, 0, 144, 329, 504, 741);  // (A0, 1, 144, 329, 504)
 
-unsigned long now, lcdTime, buttonTime,ioTime, serialTime;
+unsigned long now, lcdTime, buttonTime, ioTime, serialTime;
 boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
 
 bool editing=false;
 bool inputOk = true;
 bool tuning = false;
 
-double setpoint=250,input=250,output=50, pidInput=250;
+double setpoint=30,input=250,output=50, pidInput=250;
 
 double kp = 2, ki = 0.5, kd = 2;
 byte ctrlDirection = 0;
@@ -111,12 +139,12 @@ void setup()
   ioTime=5;
   serialTime=6;
   //windowStartTime=2;
-  lcd.begin(8, 2);
+  lcd.begin(16, 2);
 
   lcd.setCursor(0,0);
-  lcd.print(F(" osPID   "));
+  lcd.print(F(" osPID          "));
   lcd.setCursor(0,1);
-  lcd.print(F(" v1.70   "));
+  lcd.print(F(" v1.70 JRAJ     "));
   delay(1000);
 
   initializeEEPROM();
@@ -162,6 +190,9 @@ void loop()
       break;
 
     case BUTTON_OK:
+      ok();
+      break;
+    case BUTTON_SELECT:
       ok();
       break;
     }
@@ -249,14 +280,14 @@ void loop()
 void drawLCD()
 {
   boolean highlightFirst= (mDrawIndex==mIndex);
-  drawItem(0,highlightFirst, mMenu[curMenu][mDrawIndex]);
+  drawItem(0, highlightFirst, mMenu[curMenu][mDrawIndex]);
   drawItem(1,!highlightFirst, mMenu[curMenu][mDrawIndex+1]);  
   if(editing) lcd.setCursor(editDepth, highlightFirst?0:1);
 }
 
 void drawItem(byte row, boolean highlight, byte index)
 {
-  char buffer[7];
+  char buffer[(lcd_rows-1)];         //lcd_rows-1
   lcd.setCursor(0,row);
   double val=0;
   int dec=0;
@@ -274,16 +305,16 @@ void drawItem(byte row, boolean highlight, byte index)
     switch(index)
     {
     case 0: 
-      lcd.print(F("DashBrd")); 
+      lcd.print(F("DashBoard      ")); 
       break;
     case 1: 
-      lcd.print(F("Config ")); 
+      lcd.print(F("Configuration  ")); 
       break;
     case 2: 
-      lcd.print(tuning ? F("Cancel ") : F("ATune  ")); 
+      lcd.print(tuning ? F("Cancel         ") : F("ATune          ")); 
       break;
     case 3:
-      if(runningProfile)lcd.print(F("Cancel "));
+      if(runningProfile)lcd.print(F("Cancel Profile "));
       else lcd.print(profname);
       break;
     default: 
@@ -370,6 +401,7 @@ void drawItem(byte row, boolean highlight, byte index)
         }
       }
     }     
+    for(byte i=(lcd_rows-2); i>=7;i--) buffer[i]=' ';
     lcd.print(buffer);
     break;
   case TYPE_OPT: 
@@ -378,11 +410,11 @@ void drawItem(byte row, boolean highlight, byte index)
     switch(index)
     {
     case 7:    
-      lcd.print(modeIndex==0 ? F("M Man  "):F("M Auto ")); 
+      lcd.print(modeIndex==0 ? F("M Manual       "):F("M Automatic    ")); 
       break;
     case 11://12: 
 
-      lcd.print(ctrlDirection==0 ? F("A Direc"):F("A Rever")); 
+      lcd.print(ctrlDirection==0 ? F("A Direct       "):F("A Reverse      ")); 
       break;
     }
 
@@ -634,8 +666,6 @@ void updown(bool up)
     highlightedIndex = mMenu[curMenu][mIndex];
   }
 }
-
-
 
 
 
@@ -1228,6 +1258,7 @@ void SerialReceive()
 // has no problem converting strings into floats, so
 // we can just send strings.  much easier than getting
 // floats from processing to here no?
+
 void SerialSend()
 {
   if(sendInfo)
@@ -1316,12 +1347,3 @@ switch(curType)
   }
   
 }
-
-
-
-
-
-
-
-
-

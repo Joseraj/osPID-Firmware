@@ -1,9 +1,12 @@
 #include "AnalogButton_local.h"
-//#include "WProgram.h"
-#include "Arduino.h"
+#if  ARDUINO >= 100
+  #include "Arduino.h"
+#else  
+  #include "WProgram.h"
+#endif
 
 AnalogButton::AnalogButton(uint8_t analogPin, int buttonValueReturn, 
-							int buttonValueUp, int buttonValueDown, int buttonValueOk)
+							int buttonValueUp, int buttonValueDown, int buttonValueOk, int buttonSelect)
 {
 	// Store analog pin used to multiplex push button
 	buttonPin = analogPin;
@@ -14,6 +17,7 @@ AnalogButton::AnalogButton(uint8_t analogPin, int buttonValueReturn,
 	buttonValueThresholdUp = TOLERANCE*buttonValueUp;
 	buttonValueThresholdDown = TOLERANCE*buttonValueDown;
 	buttonValueThresholdOk = TOLERANCE*buttonValueOk;
+    buttonValueThresholdSelect = TOLERANCE*buttonSelect;
 }
 
 button_t	AnalogButton::read(void)
@@ -27,6 +31,7 @@ button_t	AnalogButton::read(void)
 	if (buttonValue <= buttonValueThresholdUp)		return BUTTON_UP;
 	if (buttonValue <= buttonValueThresholdDown)	return BUTTON_DOWN;
 	if (buttonValue <= buttonValueThresholdOk)		return BUTTON_OK;
+    if (buttonValue <= buttonValueThresholdSelect)  return BUTTON_SELECT;
 	
 	return BUTTON_NONE;
 }

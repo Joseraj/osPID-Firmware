@@ -44,8 +44,8 @@ PID_ATune::PID_ATune(double* Input, double* Output)
 	input = Input;
 	output = Output;
 	controlType =0 ; //default to PI
-	noiseBand = 0.5;
-	running = false;
+    noiseBand = 0.5;
+  	running = false;
 	oStep = 30;
 	SetLookbackSec(10);
 	lastTime = millis();
